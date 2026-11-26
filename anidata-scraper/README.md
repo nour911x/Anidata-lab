@@ -58,7 +58,6 @@ with DAG(
     start_date=datetime(2026, 4, 27),
     catchup=False,
 ) as dag:
-
     scrape_task = PythonOperator(
         task_id="scrape_anidex",
         python_callable=scrape_to_file,
