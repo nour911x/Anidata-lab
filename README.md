@@ -11,12 +11,18 @@ CSV bruts ─► Nettoyage ─► Validation ─► Feature engineering ─► E
  (Kaggle)      (pandas)                    (weighted_score,       (CSV + NDJSON      (indexation       (dashboard
                                             drop_ratio, …)         versionnés)         bulk)            provisionné)
                          ▲
-                         └── orchestré par Airflow (2 DAGs) ◄── scraper d'un mock-site (anidata-scraper)
+                         └── orchestré par Airflow ◄── scraper d'un mock-site (anidata-scraper)
+
+scraper_dag (@daily) ─► JSON brut ─► etl_dag ─► index anidex_animes ─► Grafana
+
+git push ─► GitHub Actions : ruff + pytest ─► build de l'image Airflow ─► publication sur GHCR
 ```
 
 | Brique | Rôle |
 |---|---|
-| **Airflow** (`airflow/`) | `dag1_etl_pipeline` : extract → clean → validate → transform → export gold → indexation ES. `dag2_data_injection` : lit des fichiers JSON/XML et déclenche le DAG 1 en lui passant les données. |
+| **Airflow** (`airflow/`) | `dag1_etl_pipeline` : extract → clean → validate → transform → export gold → indexation ES. `dag2_data_injection` : lit des fichiers JSON/XML et déclenche le DAG 1 en lui passant les données. `scraper_dag` : scrape le mock-site chaque jour puis déclenche `etl_dag`, qui transforme le JSON et l'indexe dans Elasticsearch (upsert par id, sans doublons). |
+| **Image Docker** (`Dockerfile`) | Image Airflow custom qui embarque le scraper en package Python, les DAGs et les dépendances (`requirements-airflow.txt`). |
+| **CI/CD** (`.github/workflows/ci.yml`) | À chaque push ou PR : lint `ruff`, tests `pytest` avec couverture, puis build de l'image ; publiée sur GHCR à chaque push sur `main`. |
 | **Scripts** (`airflow/scripts/`) | Modules réutilisables : `extract`, `clean`, `transform`, `export`, `load`. |
 | **Notebooks** (`notebooks/`) | Étapes de data refinement : audit complet, audit visuel, nettoyage, feature engineering, validation, indexation. |
 | **Elasticsearch + Logstash** (`elk/`) | Stockage et recherche ; Logstash en option pour indexer `anime.csv` à la demande. |
@@ -49,6 +55,16 @@ cp .env.example .env          # puis remplis les mots de passe et les clés (ins
 
 Indexer avec Logstash (optionnel) : `docker compose --profile ingest up logstash`
 
+Pour utiliser l'image custom (nécessaire pour `scraper_dag`) : `docker build -t anidata-airflow .`, puis `AIRFLOW_IMAGE=anidata-airflow` dans le `.env`.
+
+## Ma contribution
+
+Projet mené en équipe. J'ai réalisé :
+
+- la **CI GitHub Actions** (lint `ruff`, tests `pytest` avec couverture) ;
+- le **Dockerfile** de l'image Airflow custom et sa publication automatique sur GHCR ;
+- les DAGs **`scraper_dag`** et **`etl_dag`**, qui assurent la chaîne complète scraping → Elasticsearch → Grafana.
+
 ## Tests du scraper
 
 ```bash
@@ -71,4 +87,4 @@ docker compose down -v                    # arrêt + suppression des données
 
 ## Stack
 
-Python · pandas · Apache Airflow 2.8 · Elasticsearch · Logstash · Grafana · PostgreSQL · Docker Compose · BeautifulSoup · pytest
+Python · pandas · Apache Airflow 2.8 · Elasticsearch · Logstash · Grafana · PostgreSQL · Docker Compose · BeautifulSoup · pytest · ruff · GitHub Actions · GHCR
