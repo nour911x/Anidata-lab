@@ -1,4 +1,4 @@
-# 🎌 AniData Lab — Observatoire Anime/Manga
+#  AniData Lab — Observatoire Anime/Manga
 
 Pipeline de données de bout en bout autour du dataset Kaggle *Anime Recommendation Database 2020* : audit et nettoyage des données, enrichissement, indexation dans **Elasticsearch**, visualisation dans **Grafana** et orchestration avec **Apache Airflow**, le tout dans des conteneurs **Docker**.
 
